@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import logging
 import numpy as np
 
 from dft.run_dft import run_dft
-
+logger = logging.getLogger(__name__)
 
 def compute_gp_prediction_from_descriptor(x, , gp_model: Any) -> Tuple[float, float]:
     """Compute GP energy mean and uncertainty for one structure."""
@@ -129,6 +130,7 @@ def run_gp_active_learning_cycle(
     max_dft_calls: Optional[int] = None,
     mode: str = "batch",
     selection_strategy: str = "top_uncertainty",
+    verbose: bool = True,
 ) -> Dict[str, Any]:
     """Run a GP-based active learning cycle in batch or online mode.
 
@@ -166,6 +168,9 @@ def run_gp_active_learning_cycle(
             "selected_indices": np.ndarray,
         }
     """
+
+    logger.debug("Starting GP active learning cycle: mode=%s, strategy=%s", mode, selection_strategy)
+
     if uncertainty_threshold < 0:
         raise ValueError("uncertainty_threshold must be non-negative.")
     if max_dft_calls is not None and max_dft_calls < 0:
@@ -214,6 +219,7 @@ def run_gp_active_learning_cycle(
 
 
         energy_gp, sigma_gp = compute_gp_prediction_from_descriptor(x, gp_model)
+        logger.debug("Structure %d: energy_gp=% .6e, sigma_gp=% .6e", idx, energy_gp, sigma_gp)
         gp_energies[idx] = energy_gp
         gp_uncertainties[idx] = sigma_gp
 
@@ -247,15 +253,19 @@ def run_gp_active_learning_cycle(
         dft_energies = np.asarray(dft_energies_online, dtype=float)
         dft_forces = dft_forces_online
 
-    print("----- Active Learning Summary -----")
-    print(f"Total structures: {n_structures}")
-    print(f"Selected for DFT: {len(selected_indices_array)}")
+    if verbose:
+        logger.info("----- Active Learning Summary -----")
+        logger.info(f"Mode: {mode}")
+        logger.info(f"Selection strategy: {selection_strategy}")
+        logger.info(f"Total structures: {n_structures}")
+        logger.info(f"Selected for DFT: {len(selected_indices_array)}")
 
-    if len(selected_indices_array) > 0:
-    	print(f"Max uncertainty: {gp_uncertainties.max():.4e}")
-    	print(f"Mean uncertainty: {gp_uncertainties.mean():.4e}")
-    	print(f"Selected indices: {selected_indices_array}")
+        if n_structures > 0:
+            logger.info(f"Max uncertainty: {gp_uncertainties.max():.4e}")
+            logger.info(f"Mean uncertainty: {gp_uncertainties.mean():.4e}")
 
+        if len(selected_indices_array) > 0:
+            logger.info(f"Selected indices: {selected_indices_array}")
 
     return {
         "selected_structures": selected_structures,
