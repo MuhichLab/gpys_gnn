@@ -1,35 +1,45 @@
-def compute_forces_fd(atoms, descriptor, gp, eps=1e-3):
-    """
-    Compute forces via finite differences on GP energy.
+"""Force calculators for MD."""
 
-    atoms: ASE Atoms
-    descriptor: SOAPDescriptor
-    gp: AtomicGaussianProcess
-    """
+from __future__ import annotations
 
-    positions = atoms.get_positions()
-    forces = np.zeros_like(positions)
+from typing import Any
 
-    for i in range(len(atoms)):
-        for d in range(3):
+import numpy as np
 
-            atoms_plus = atoms.copy()
-            atoms_minus = atoms.copy()
+from models.gp_model import predict_system_energy
 
-            pos = positions.copy()
 
-            pos[i, d] += eps
-            atoms_plus.set_positions(pos)
+def compute_forces_fd(
+    atoms: Any,
+    descriptor: Any,
+    gp_model: Any,
+    epsilon: float = 1e-4,
+) -> np.ndarray:
+    """Compute forces with central finite differences on GP-predicted energy."""
+    if epsilon <= 0:
+        raise ValueError("epsilon must be positive.")
 
-            pos[i, d] -= 2 * eps
-            atoms_minus.set_positions(pos)
+    n_atoms = len(atoms)
+    forces = np.zeros((n_atoms, 3), dtype=float)
+    base_positions = atoms.get_positions()
 
-            X_plus = descriptor.create(atoms_plus)
-            X_minus = descriptor.create(atoms_minus)
+    for i in range(n_atoms):
+        for j in range(3):
+            displaced_plus = atoms.copy()
+            displaced_minus = atoms.copy()
 
-            E_plus = gp.predict_mean([X_plus])[0]
-            E_minus = gp.predict_mean([X_minus])[0]
+            positions_plus = base_positions.copy()
+            positions_minus = base_positions.copy()
+            positions_plus[i, j] += epsilon
+            positions_minus[i, j] -= epsilon
 
-            forces[i, d] = -(E_plus - E_minus) / (2 * eps)
+            displaced_plus.set_positions(positions_plus)
+            displaced_minus.set_positions(positions_minus)
+
+            e_plus = predict_system_energy(displaced_plus, descriptor, gp_model)
+            e_minus = predict_system_energy(displaced_minus, descriptor, gp_model)
+
+            forces[i, j] = -(e_plus - e_minus) / (2.0 * epsilon)
 
     return forces
+
