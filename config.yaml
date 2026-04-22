@@ -1,0 +1,14 @@
+sigma_low: 0.5
+sigma_high: 2.0
+sigma_dft: 3.0
+
+gp_weight_max: 10.0
+gp_weight_min: 0.1
+
+batch:
+  dft_fraction: 0.7
+  gp_fraction: 0.3
+
+selection:
+  n_dft_per_iter: 10
+  n_gp_per_iter: 10000
