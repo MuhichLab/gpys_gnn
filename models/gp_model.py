@@ -22,6 +22,7 @@ class AtomicGaussianProcess:
         self.X_list: list[np.ndarray] | None = None
         self.y: np.ndarray | None = None
         self.K: np.ndarray | None = None
+        self.L: np.ndarray | None = None
         self.alpha: np.ndarray | None = None
 
     def atomic_kernel(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
@@ -82,47 +83,96 @@ class AtomicGaussianProcess:
 
         jitter = 1e-10
         try:
-            alpha = np.linalg.solve(K, y_train)
+            L = np.linalg.cholesky(K)
         except np.linalg.LinAlgError:
             K = K + jitter * np.eye(K.shape[0], dtype=float)
-            alpha = np.linalg.solve(K, y_train)
+            L = np.linalg.cholesky(K)
+
+
+        self.y_mean = np.mean(y_train)
+	self.y_std = np.std(y_train) + 1e-12
+
+	y_scaled = (y_train - self.y_mean) / self.y_std
+
+        alpha = np.linalg.solve(L.T, np.linalg.solve(L, y_scaled))
 
         self.X_list = X_train
         self.y = y_train
         self.K = K
+        self.L = L
         self.alpha = alpha
+
+
+    def _compute_k_star(self, X: np.ndarray) -> np.ndarray:
+        """Kernel vector between a test structure and all training structures."""
+        if self.X_list is None:
+            raise RuntimeError("Model must be fitted before prediction.")
+        return np.array(
+            [self.structure_kernel(X, X_train) for X_train in self.X_list],
+            dtype=float,
+        )
+
+    def _compute_k_self(self, X: np.ndarray) -> float:
+        """Kernel value of a structure with itself."""
+        return self.structure_kernel(X, X)
+
+    def predict_single(
+        self,
+        X: np.ndarray,
+        return_mean: bool = True,
+        return_std: bool = True,
+    ) -> tuple[float | None, float | None]:
+        """Predict mean/std for one structure with shared kernel computations."""
+        if self.alpha is None or self.L is None:
+            raise RuntimeError("Model must be fitted before prediction.")
+
+        X = np.asarray(X, dtype=float)
+        k_star = self._compute_k_star(X)
+
+        mean = float(k_star @ self.alpha)*self.y_std + self.y_mean if return_mean else None
+        k_self = self._comput_k_self(x) if return_std else None
+
+        std = None
+        if return_std:
+            v = np.linalg.solve(self.L, k_star)
+            var =k_self - v @ v
+            var = max(var,1e-12)
+            std = float(np.sqrt(var))*self.y_std 
+
+        return mean, std
 
     def predict(self, X_list: Sequence[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
         """Predict mean and standard deviation for test structures."""
-        if self.X_list is None or self.K is None or self.alpha is None:
-            raise RuntimeError("Model must be fitted before prediction.")
-
         X_test = [np.asarray(X, dtype=float) for X in X_list]
-        n_test = len(X_test)
-
-        mu = np.zeros(n_test, dtype=float)
-        sigma = np.zeros(n_test, dtype=float)
+        mu = np.zeros(len(X_test), dtype=float)
+        sigma = np.zeros(len(X_test), dtype=float)
 
         for idx, X in enumerate(X_test):
-            k_star = np.array(
-                [self.structure_kernel(X, X_train) for X_train in self.X_list],
-                dtype=float,
-            )
-            mu[idx] = k_star @ self.alpha
-
-            v = np.linalg.solve(self.K, k_star)
-            var = self.structure_kernel(X, X) - k_star @ v
-            sigma[idx] = np.sqrt(max(var, 0.0))
+            mean, std = self.predict_single(X, return_mean=True, return_std=True)
+            mu[idx] = 0.0 if mean is None else mean
+            sigma[idx] = 0.0 if std is None else std
 
         return mu, sigma
 
     def predict_mean(self, X_list: Sequence[np.ndarray]) -> np.ndarray:
         """Predict only GP mean for test structures."""
-        mu, _ = self.predict(X_list)
+        X_test = [np.asarray(X, dtype=float) for X in X_list]
+        mu = np.zeros(len(X_test), dtype=float)
+
+        for idx, X in enumerate(X_test):
+            mean, _ = self.predict_single(X, return_mean=True, return_std=False)
+            mu[idx] = 0.0 if mean is None else mean
+
         return mu
 
     def predict_uncertainty(self, X_list: Sequence[np.ndarray]) -> np.ndarray:
         """Predict only GP standard deviation for test structures."""
-        _, sigma = self.predict(X_list)
+        X_test = [np.asarray(X, dtype=float) for X in X_list]
+        sigma = np.zeros(len(X_test), dtype=float)
+
+        for idx, X in enumerate(X_test):
+            _, std = self.predict_single(X, return_mean=False, return_std=True)
+            sigma[idx] = 0.0 if std is None else std
+
         return sigma
 
