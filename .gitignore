@@ -1,4 +1,16 @@
+# Python
 __pycache__/
 *.pyc
+
+# Pytest
 .pytest_cache/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# Logs / outputs
+*.log
+*.out
+*.err
+*.npy
+*.npz
