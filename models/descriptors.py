@@ -9,6 +9,15 @@ from ase import Atoms
 from dscribe.descriptors import SOAP
 
 
+def infer_species_from_structures(structures):
+    """Infer sorted unique chemical species from a list of ASE Atoms."""
+    species = set()
+    for atoms in structures:
+        species.update(atoms.get_chemical_symbols())
+    return sorted(species)
+
+
+
 class SOAPDescriptor:
     """Simple wrapper around dscribe's SOAP descriptor.
 

@@ -1,7 +1,14 @@
-def test_forces_nonzero():
-    from md.forces import compute_forces_fd
+from __future__ import annotations
 
-    F = compute_forces_fd(dataset_structures[0], descriptor, gp_model)
+import pytest
 
-    assert np.all(np.isfinite(F))
-    assert F.shape[1] == 3 
+np = pytest.importorskip("numpy")
+
+from md.compute_forces_fd import compute_forces_fd
+
+
+def test_forces_nonzero(descriptor, gp_model, dataset_structures):
+    forces = compute_forces_fd(dataset_structures[0].copy(), descriptor, gp_model)
+
+    assert np.all(np.isfinite(forces))
+    assert forces.shape[1] == 3

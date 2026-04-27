@@ -1,29 +1,28 @@
-def test_learning_effect():
-    import numpy as np
-    from ase.calculators.emt import EMT
+from __future__ import annotations
 
-    # --- copy dataset ---
-    structures = list(dataset_structures)
+import pytest
+
+EMT = pytest.importorskip("ase.calculators.emt").EMT
+
+from dft.run_dft import run_dft
+
+
+def test_learning_effect(descriptor, gp_model, dataset_structures, dataset_energies):
+    structures = [atoms.copy() for atoms in dataset_structures]
     energies = list(dataset_energies)
 
-    # --- fit initial GP ---
-    X_list = [descriptor.create(a) for a in structures]
+    X_list = [descriptor.create(atoms) for atoms in structures]
     gp_model.fit(X_list, energies)
 
-    # --- pick a test structure slightly outside training set ---
     test_structure = structures[0].copy()
     test_structure.positions[0, 0] += 0.08
 
     X_test = descriptor.create(test_structure)
+    e_true, _ = run_dft(test_structure, EMT())
 
-    # true energy
-    E_true, _ = run_dft(test_structure, EMT())
+    e_pred_before = gp_model.predict_mean([X_test])[0]
+    err_before = abs(e_pred_before - e_true)
 
-    # prediction before
-    E_pred_before = gp_model.predict_mean([X_test])[0]
-    err_before = abs(E_pred_before - E_true)
-
-    # --- add new nearby structure ---
     new_structure = structures[0].copy()
     new_structure.positions[0, 0] += 0.1
     new_energy, _ = run_dft(new_structure, EMT())
@@ -31,16 +30,10 @@ def test_learning_effect():
     structures.append(new_structure)
     energies.append(new_energy)
 
-    # --- retrain ---
-    X_list2 = [descriptor.create(a) for a in structures]
+    X_list2 = [descriptor.create(atoms) for atoms in structures]
     gp_model.fit(X_list2, energies)
 
-    # prediction after
-    E_pred_after = gp_model.predict_mean([X_test])[0]
-    err_after = abs(E_pred_after - E_true)
+    e_pred_after = gp_model.predict_mean([X_test])[0]
+    err_after = abs(e_pred_after - e_true)
 
-    print("Error before:", err_before)
-    print("Error after :", err_after)
-
-    # --- ASSERT: learning improves prediction ---
     assert err_after <= err_before
