@@ -6,8 +6,7 @@ from typing import Any
 
 import numpy as np
 
-from models.gp_model import predict_system_energy
-
+from utils.compute_energy import compute_energy
 
 def compute_forces_fd(
     atoms: Any,
@@ -36,8 +35,8 @@ def compute_forces_fd(
             displaced_plus.set_positions(positions_plus)
             displaced_minus.set_positions(positions_minus)
 
-            e_plus = predict_system_energy(displaced_plus, descriptor, gp_model)
-            e_minus = predict_system_energy(displaced_minus, descriptor, gp_model)
+            e_plus = compute_energy(displaced_plus, descriptor, gp_model)
+            e_minus = compute_energy(displaced_minus, descriptor, gp_model)
 
             forces[i, j] = -(e_plus - e_minus) / (2.0 * epsilon)
 

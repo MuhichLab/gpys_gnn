@@ -7,7 +7,7 @@ from ase import Atoms
 import numpy as np
 
 
-def run_dft(atoms: Any, calculator, directory: Optional[str] = =None) -> Tuple[float, np.ndarray]:
+def run_dft(atoms: Any, calculator, directory: Optional[str] = None) -> Tuple[float, np.ndarray]:
     """Run a single-point DFT calculation using ASE calculator interface.
 
     The input atoms object is not modified. A copy is used internally.
@@ -20,8 +20,8 @@ def run_dft(atoms: Any, calculator, directory: Optional[str] = =None) -> Tuple[f
     try: 
     	energy = float(atoms_copy.get_potential_energy())
     	forces = np.asarray(atoms_copy.get_forces(), dtype=float)
-   except Exception as e: 
-	rais RuntimeError(f"DFT calcaution failed: {}")
+    except Exception as e:
+        raise RuntimeError(f"DFT calcaution failed: {e}")
 
     return energy, forces
 

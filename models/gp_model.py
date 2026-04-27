@@ -90,9 +90,9 @@ class AtomicGaussianProcess:
 
 
         self.y_mean = np.mean(y_train)
-	self.y_std = np.std(y_train) + 1e-12
+        self.y_std = np.std(y_train) + 1e-12
 
-	y_scaled = (y_train - self.y_mean) / self.y_std
+        y_scaled = (y_train - self.y_mean) / self.y_std
 
         alpha = np.linalg.solve(L.T, np.linalg.solve(L, y_scaled))
 
@@ -130,7 +130,7 @@ class AtomicGaussianProcess:
         k_star = self._compute_k_star(X)
 
         mean = float(k_star @ self.alpha)*self.y_std + self.y_mean if return_mean else None
-        k_self = self._comput_k_self(x) if return_std else None
+        k_self = self._compute_k_self(X) if return_std else None
 
         std = None
         if return_std:

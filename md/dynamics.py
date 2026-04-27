@@ -7,13 +7,11 @@ from typing import Any, Optional, Tuple
 import numpy as np
 from ase import units
 
-from md.forces import compute_forces_fd
-from models.gp_model import predict_system_energy
+
+from md.compute_forces_fd import compute_forces_fd
+from utils.compute_energy import compute_energy
 
 
-def compute_energy(atoms, descriptor,gp_model):
-    X = descriptor.create(atoms)
-    return gp_model.predict_mean([X])[0]
 
 
 def initialize_velocities(
@@ -122,8 +120,8 @@ def run_velocity_verlet_md(
     masses = atoms_md.get_masses()[:, None]
     dt = timestep 
 
-    trajectory = [atoms_md.get_positions().copy()]
-    energies = [predict_system_energy(atoms_md, descriptor, gp_model)]
+    trajectory = [atoms_md.copy()]
+    energies = [compute_energy(atoms_md, descriptor, gp_model)]
 
     if not run_loop or n_steps == 0:
         return np.asarray(trajectory), np.asarray(energies)
@@ -154,8 +152,8 @@ def run_velocity_verlet_md(
 
         forces = new_forces
 
-        trajectory.append(atoms_md.get_positions().copy())
-        energies.append(predict_system_energy(atoms_md, descriptor, gp_model))
+        trajectory.append(atoms_md.copy())
+        energies.append(compute_energy(atoms_md, descriptor, gp_model))
 
-    return np.asarray(trajectory), np.asarray(energies)
+    return trajectory, np.asarray(energies)
 

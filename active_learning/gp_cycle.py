@@ -10,7 +10,7 @@ import numpy as np
 from dft.run_dft import run_dft
 logger = logging.getLogger(__name__)
 
-def compute_gp_prediction_from_descriptor(x, , gp_model: Any) -> Tuple[float, float]:
+def compute_gp_prediction_from_descriptor(x: Any , gp_model: Any) -> Tuple[float, float]:
     """Compute GP energy mean and uncertainty for one structure."""
     energy = float(np.asarray(gp_model.predict_mean([x])).reshape(-1)[0])
     uncertainty = float(np.asarray(gp_model.predict_uncertainty([x])).reshape(-1)[0])
@@ -205,17 +205,17 @@ def run_gp_active_learning_cycle(
         x_vec = _pool_descriptor(x)
 
         if mode =="batch" : 
-		if descriptor_matrix is None:
-            		descriptor_matrix = np.empty((n_structures, x_vec.size), dtype=float)
-        	elif x_vec.size != descriptor_matrix.shape[1]:
-            		raise ValueError(
-                		"All flattened descriptors must have the same length for "
-                		"batch farthest-point selection."
-            		)
-		if not np.all(np.isfinite(x_vec)):
-     			raise ValueError("Descriptor contains NaN or inf values.")
-		x_vec = x_vec / (np.linalg.norm(x_vec) + 1e-12)
-	        descriptor_matrix[idx] = x_vec
+                if descriptor_matrix is None:
+                        descriptor_matrix = np.empty((n_structures, x_vec.size), dtype=float)
+                elif x_vec.size != descriptor_matrix.shape[1]:
+                        raise ValueError(
+                                "All flattened descriptors must have the same length for "
+                	         "batch farthest-point selection."
+                        )
+                if not np.all(np.isfinite(x_vec)):
+                        raise ValueError("Descriptor contains NaN or inf values.")
+                x_vec = x_vec / (np.linalg.norm(x_vec) + 1e-12)
+                descriptor_matrix[idx] = x_vec
 
 
         energy_gp, sigma_gp = compute_gp_prediction_from_descriptor(x, gp_model)

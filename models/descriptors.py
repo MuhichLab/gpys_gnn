@@ -32,7 +32,7 @@ class SOAPDescriptor:
         cutoff_radius: float = 5.0,
         n_radial: int = 8,
         n_angular: int = 6,
-        periodic: bool = True,
+        periodic: bool = False,
     ) -> None:
         self.species = list(species)
         self.cutoff_radius = cutoff_radius
@@ -53,7 +53,7 @@ class SOAPDescriptor:
 
     @property
     def n_features(self):
-	return self._soap.get_number_of_features()
+        return self._soap.get_number_of_features()
 
     def create(self, atoms: Atoms) -> np.ndarray:
         """Create per-atom SOAP features for a single structure.
@@ -64,25 +64,25 @@ class SOAPDescriptor:
             Array with shape ``(n_atoms, n_features)``.
         """
         if self.periodic and not np.any(atoms.pbc): 
-		raise ValueError("Periodic Soap reqeused but Aatoms object has no PBC set.")
+            raise ValueError("Periodic Soap reqeused but Aatoms object has no PBC set.")
 
         descriptor = self._soap.create(atoms)
         return np.asarray(descriptor)
 
     def create_batch(self, list_of_atoms):
-    	descriptors = []
-    	structure_ids = []
+        descriptors = []
+        structure_ids = []
 
-    	for i, atoms in enumerate(list_of_atoms):
-        	d = self.create(atoms)
-        	descriptors.append(d)
-	        structure_ids.extend([i] * len(d))
+        for i, atoms in enumerate(list_of_atoms):
+            d = self.create(atoms)
+            descriptors.append(d)
+            structure_ids.extend([i] * len(d))
 
-   	if not descriptors:
-        	n_features = self._soap.get_number_of_features()
-        	return np.empty((0, n_features)), np.array([])
+        if not descriptors:
+            n_features = self._soap.get_number_of_features()
+            return np.empty((0, n_features)), np.array([])
 
-	return np.vstack(descriptors), np.array(structure_ids)
+        return np.vstack(descriptors), np.array(structure_ids)
 
     def _check_species(self, atoms: Atoms):
     	unique = set(atoms.get_chemical_symbols())
