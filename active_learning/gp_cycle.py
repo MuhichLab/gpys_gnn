@@ -88,28 +88,32 @@ def _select_farthest_point_indices(
 def _select_batch_indices(
     gp_uncertainties: np.ndarray,
     descriptor_matrix: np.ndarray,
-    uncertainty_threshold: float,
+    uncertainty_threshold: Optional[float],
     max_dft_calls: Optional[int],
     selection_strategy: str,
 ) -> np.ndarray:
     """Select batch-mode DFT indices with optional capped strategy."""
-    above_threshold = np.where(gp_uncertainties > uncertainty_threshold)[0]
 
-    if max_dft_calls is None or above_threshold.size <= max_dft_calls:
-        return above_threshold
+    if uncertainty_threshold is None:
+        candidate_indices = np.arange(len(gp_uncertainties), dtype=int)
+    else:
+        candidate_indices = np.where(gp_uncertainties > uncertainty_threshold)[0]
+
+    if max_dft_calls is None or candidate_indices.size <= max_dft_calls:
+        return candidate_indices
 
     if selection_strategy == "top_uncertainty":
-        order = np.argsort(gp_uncertainties[above_threshold])[::-1]
-        return above_threshold[order[:max_dft_calls]]
+        order = np.argsort(gp_uncertainties[candidate_indices])[::-1]
+        return candidate_indices[order[:max_dft_calls]]
 
     if selection_strategy == "random_above_threshold":
         rng = np.random.default_rng()
-        selected = rng.choice(above_threshold, size=max_dft_calls, replace=False)
+        selected = rng.choice(candidate_indices, size=max_dft_calls, replace=False)
         return np.sort(selected)
 
     if selection_strategy == "farthest_point":
         return _select_farthest_point_indices(
-            above_threshold,
+            candidate_indices,
             descriptor_matrix,
             gp_uncertainties,
             max_dft_calls,
@@ -120,13 +124,12 @@ def _select_batch_indices(
         "or 'farthest_point'."
     )
 
-
 def run_gp_active_learning_cycle(
     structures: Iterable[Any],
     descriptor: Any,
     gp_model: Any,
     calculator: Any,
-    uncertainty_threshold: float,
+    uncertainty_threshold: Optional[float],
     max_dft_calls: Optional[int] = None,
     mode: str = "batch",
     selection_strategy: str = "top_uncertainty",
@@ -171,7 +174,7 @@ def run_gp_active_learning_cycle(
 
     logger.debug("Starting GP active learning cycle: mode=%s, strategy=%s", mode, selection_strategy)
 
-    if uncertainty_threshold < 0:
+    if uncertainty_threshold is not None and uncertainty_threshold < 0:
         raise ValueError("uncertainty_threshold must be non-negative.")
     if max_dft_calls is not None and max_dft_calls < 0:
         raise ValueError("max_dft_calls must be >= 0 when provided.")
@@ -223,7 +226,7 @@ def run_gp_active_learning_cycle(
         gp_energies[idx] = energy_gp
         gp_uncertainties[idx] = sigma_gp
 
-        if mode == "online" and sigma_gp > uncertainty_threshold:
+        if mode == "online" and (uncertainty_threshold is None or sigma_gp > uncertainty_threshold):
             if max_dft_calls is None or len(selected_indices) < max_dft_calls:
                 selected_indices.append(idx)
                 structure_copy = atoms.copy()
